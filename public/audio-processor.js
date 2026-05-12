@@ -7,21 +7,18 @@ const BASE64_CHARS = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz012345
 function uint8ArrayToBase64(bytes) {
   let result = "";
   const len = bytes.length;
-  let i = 0;
-
-  while (i < len) {
-    const a = bytes[i++];
-    const b = i < len ? bytes[i++] : 0;
-    const c = i < len ? bytes[i++] : 0;
+  for (let i = 0; i < len; i += 3) {
+    const a = bytes[i];
+    const b = i + 1 < len ? bytes[i + 1] : 0;
+    const c = i + 2 < len ? bytes[i + 2] : 0;
 
     const triplet = (a << 16) | (b << 8) | c;
 
     result += BASE64_CHARS[(triplet >> 18) & 0x3f];
     result += BASE64_CHARS[(triplet >> 12) & 0x3f];
-    result += i - 2 <= len ? BASE64_CHARS[(triplet >> 6) & 0x3f] : "=";
-    result += i - 1 <= len ? BASE64_CHARS[triplet & 0x3f] : "=";
+    result += i + 1 < len ? BASE64_CHARS[(triplet >> 6) & 0x3f] : "=";
+    result += i + 2 < len ? BASE64_CHARS[triplet & 0x3f] : "=";
   }
-
   return result;
 }
 
@@ -54,9 +51,17 @@ class AudioProcessor extends AudioWorkletProcessor {
         const uint8View = new Uint8Array(int16Array.buffer);
         const base64 = uint8ArrayToBase64(uint8View);
 
+        // Calculate RMS for visualization
+        let sum = 0;
+        for (let j = 0; j < this._bufferSize; j++) {
+          sum += this._buffer[j] * this._buffer[j];
+        }
+        const rms = Math.sqrt(sum / this._bufferSize);
+
         this.port.postMessage({
           type: "audio",
           data: base64,
+          rms: rms,
         });
 
         this._bytesWritten = 0;

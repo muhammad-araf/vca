@@ -25,6 +25,8 @@ interface UseVoiceAgentReturn {
   transcript: TranscriptEntry[];
   audioLevel: number;
   errorMessage: string | null;
+  orderStatus: "idle" | "processing" | "confirmed" | "error";
+  lastOrder: any;
   startCall: () => Promise<void>;
   endCall: () => void;
   toggleMute: () => void;
@@ -51,6 +53,8 @@ export function useVoiceAgent(): UseVoiceAgentReturn {
   const nextPlayTimeRef = useRef(0);
   const isMutedRef = useRef(false);
   const stateRef = useRef<AgentState>("idle");
+  const silenceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const lastActivityRef = useRef<number>(Date.now());
 
   // Keep refs in sync
   useEffect(() => {
@@ -73,6 +77,10 @@ export function useVoiceAgent(): UseVoiceAgentReturn {
     if (timerRef.current) {
       clearInterval(timerRef.current);
       timerRef.current = null;
+    }
+    if (silenceTimerRef.current) {
+      clearTimeout(silenceTimerRef.current);
+      silenceTimerRef.current = null;
     }
     if (animationFrameRef.current) {
       cancelAnimationFrame(animationFrameRef.current);
@@ -107,6 +115,31 @@ export function useVoiceAgent(): UseVoiceAgentReturn {
       wsRef.current = null;
     }
     nextPlayTimeRef.current = 0;
+  }, []);
+
+  // Silence detection — prompts Sana to check in if user goes quiet
+  const resetSilenceTimer = useCallback(() => {
+    lastActivityRef.current = Date.now();
+    if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
+
+    silenceTimerRef.current = setTimeout(() => {
+      if (
+        wsRef.current &&
+        wsRef.current.readyState === WebSocket.OPEN &&
+        (stateRef.current === "listening" || stateRef.current === "connected")
+      ) {
+        // Prompt Sana to check if user is still there
+        wsRef.current.send(JSON.stringify({
+          clientContent: {
+            turns: [{
+              role: "user",
+              parts: [{ text: "[SYSTEM: The user has been silent for a while. Naturally check if they are still there, like a real person would on a phone call.]" }],
+            }],
+            turnComplete: true,
+          },
+        }));
+      }
+    }, 9000); // 9 seconds of silence
   }, []);
 
   const monitorAudioLevel = useCallback(() => {
@@ -324,19 +357,21 @@ export function useVoiceAgent(): UseVoiceAgentReturn {
               },
             ]);
 
-            // Trigger AI to speak first
-            const initMessage = {
-              clientContent: {
-                turns: [
-                  {
-                    role: "user",
-                    parts: [{ text: "Hello, please greet the customer as instructed in your system prompt. Start the conversation." }],
-                  },
-                ],
-                turnComplete: true,
+            // Trigger Sana to speak first — send a silent audio chunk
+            // (avoids text instruction bleeding into her greeting)
+            const silentPcm = new Int16Array(160); // 10ms of silence at 16kHz
+            const silentBytes = new Uint8Array(silentPcm.buffer);
+            let binary = '';
+            silentBytes.forEach(b => binary += String.fromCharCode(b));
+            const silentB64 = btoa(binary);
+            ws.send(JSON.stringify({
+              realtimeInput: {
+                audio: { data: silentB64, mimeType: "audio/pcm;rate=16000" },
               },
-            };
-            ws.send(JSON.stringify(initMessage));
+            }));
+
+            // Start silence detection
+            resetSilenceTimer();
 
             return;
           }
@@ -351,6 +386,8 @@ export function useVoiceAgent(): UseVoiceAgentReturn {
                 if (part.inlineData) {
                   setState("ai-speaking");
                   playAudioChunk(part.inlineData.data);
+                  // Sana is speaking — reset silence timer
+                  resetSilenceTimer();
                 }
                 if (part.text) {
                   setTranscript((prev) => [
@@ -367,6 +404,8 @@ export function useVoiceAgent(): UseVoiceAgentReturn {
 
             // Live transcription from Gemini
             if (sc.inputTranscription) {
+              // User spoke — reset silence timer
+              resetSilenceTimer();
               setTranscript((prev) => [
                 ...prev,
                 {
@@ -389,11 +428,14 @@ export function useVoiceAgent(): UseVoiceAgentReturn {
 
             if (sc.turnComplete) {
               setState("listening");
+              // After Sana finishes speaking, start waiting for user
+              resetSilenceTimer();
             }
 
             if (sc.interrupted) {
               clearPlayback();
               setState("listening");
+              resetSilenceTimer();
             }
           }
 
@@ -490,6 +532,21 @@ export function useVoiceAgent(): UseVoiceAgentReturn {
           wsRef.current.send(JSON.stringify(realtimeInput));
         }
       };
+
+      // Monitor mic audio level for silence detection
+      analyser.fftSize = 512;
+      const silenceData = new Uint8Array(analyser.frequencyBinCount);
+      const checkMicSilence = () => {
+        if (!analyserRef.current) return;
+        analyserRef.current.getByteFrequencyData(silenceData);
+        const avg = silenceData.reduce((a, b) => a + b, 0) / silenceData.length;
+        if (avg > 8) {
+          // User is making sound — reset silence timer
+          resetSilenceTimer();
+        }
+        requestAnimationFrame(checkMicSilence);
+      };
+      checkMicSilence();
     } catch (err: any) {
       console.error("[Voice] Error starting call:", err);
       if (err.name === "NotAllowedError") {
@@ -504,7 +561,7 @@ export function useVoiceAgent(): UseVoiceAgentReturn {
       setState("error");
       cleanup();
     }
-  }, [cleanup, monitorAudioLevel, playAudioChunk, clearPlayback]);
+  }, [cleanup, monitorAudioLevel, playAudioChunk, clearPlayback, resetSilenceTimer]);
 
   const endCall = useCallback(() => {
     setState("ended");
@@ -523,6 +580,40 @@ export function useVoiceAgent(): UseVoiceAgentReturn {
     });
   }, []);
 
+  // Sends manually typed phone/address to Sana via a hidden system message
+  const sendManualInfo = useCallback((phone: string, address: string) => {
+    if (!wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) return;
+
+    const parts: string[] = [];
+    if (phone) parts.push(`Phone number: ${phone}`);
+    if (address) parts.push(`Delivery address: ${address}`);
+    if (parts.length === 0) return;
+
+    const msg = `[CUSTOMER TYPED THIS INFO MANUALLY — treat it as if they just said it out loud: ${parts.join(", ")}. Acknowledge naturally and continue the order flow.]`;
+
+    wsRef.current.send(JSON.stringify({
+      clientContent: {
+        turns: [{
+          role: "user",
+          parts: [{ text: msg }],
+        }],
+        turnComplete: true,
+      },
+    }));
+
+    // Also add to transcript for reference
+    setTranscript((prev) => [
+      ...prev,
+      {
+        role: "user",
+        text: parts.join(" | "),
+        timestamp: Date.now(),
+      },
+    ]);
+
+    resetSilenceTimer();
+  }, [resetSilenceTimer]);
+
   return {
     state,
     isMuted,
@@ -535,5 +626,6 @@ export function useVoiceAgent(): UseVoiceAgentReturn {
     startCall,
     endCall,
     toggleMute,
+    sendManualInfo,
   };
 }
