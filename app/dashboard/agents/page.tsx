@@ -5,6 +5,10 @@ import { createClient } from "@/lib/supabase/client";
 import { Agent, VOICES, LANGUAGES, PERSONALITY_PRESETS } from "@/types";
 import { Bot, Plus, Trash2, Edit3, X, Check, ToggleLeft, ToggleRight } from "lucide-react";
 import Link from "next/link";
+import { Card } from "@/app/components/ui/Card";
+import { Button } from "@/app/components/ui/Button";
+import { Badge } from "@/app/components/ui/Badge";
+import { motion, AnimatePresence } from "framer-motion";
 
 function Modal({ open, onClose, title, children }: {
   open: boolean; onClose: () => void; title: string; children: React.ReactNode;
@@ -12,16 +16,25 @@ function Modal({ open, onClose, title, children }: {
   if (!open) return null;
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-      <div className="absolute inset-0 bg-black/80 backdrop-blur-sm" onClick={onClose} />
-      <div className="relative w-full max-w-md rounded-2xl border border-white/[0.1] bg-[#0a0a0a] p-6 fade-in">
-        <div className="flex items-center justify-between mb-6">
-          <h3 className="text-white font-semibold">{title}</h3>
-          <button onClick={onClose} className="text-zinc-500 hover:text-white transition-colors">
-            <X size={18} />
+      <motion.div 
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        className="absolute inset-0 bg-slate-900/60 backdrop-blur-md" 
+        onClick={onClose} 
+      />
+      <motion.div 
+        initial={{ opacity: 0, scale: 0.95, y: 20 }}
+        animate={{ opacity: 1, scale: 1, y: 0 }}
+        className="relative w-full max-w-lg rounded-[3rem] border border-white bg-white p-10 shadow-2xl"
+      >
+        <div className="flex items-center justify-between mb-10">
+          <h3 className="text-slate-900 text-2xl font-black tracking-tight">{title}</h3>
+          <button onClick={onClose} className="w-10 h-10 rounded-full bg-slate-50 flex items-center justify-center text-slate-400 hover:text-black transition-colors">
+            <X size={20} />
           </button>
         </div>
         {children}
-      </div>
+      </motion.div>
     </div>
   );
 }
@@ -96,160 +109,177 @@ export default function AgentsPage() {
   return (
     <div className="max-w-6xl mx-auto">
       {/* Header */}
-      <div className="flex items-center justify-between mb-8">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-8 mb-12">
         <div>
-          <h2 className="text-white text-2xl font-bold tracking-tight">Agents</h2>
-          <p className="text-zinc-500 text-sm mt-1">Create and manage your AI voice employees</p>
+          <h2 className="text-4xl font-black tracking-tight text-slate-900 mb-2">Your AI Employees</h2>
+          <p className="text-slate-400 font-bold uppercase tracking-tight text-xs">Create and manage your voice agents across businesses.</p>
         </div>
-        <button
+        <Button
           onClick={() => setModalOpen(true)}
-          className="flex items-center gap-2 bg-white text-black font-semibold text-sm px-4 py-2 rounded-xl hover:bg-zinc-100 transition-all"
+          className="h-16 px-10 rounded-3xl text-sm font-black uppercase tracking-widest shadow-2xl shadow-black/10 bg-black text-white hover:bg-slate-900"
         >
-          <Plus size={15} />
-          New Agent
-        </button>
+          <Plus size={20} className="mr-3" />
+          Deploy New Agent
+        </Button>
       </div>
 
       {/* List */}
       {loading ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {[1,2,3].map(i => <div key={i} className="h-48 rounded-2xl bg-white/[0.02] border border-white/[0.06] animate-pulse" />)}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+          {[1,2,3].map(i => <div key={i} className="h-64 rounded-[3rem] bg-white/40 border border-slate-100 animate-pulse" />)}
         </div>
       ) : agents.length === 0 ? (
-        <div className="flex flex-col items-center justify-center py-28 rounded-2xl border border-dashed border-white/[0.08]">
-          <Bot size={40} className="text-zinc-700 mb-4" />
-          <p className="text-white font-semibold mb-2">No agents yet</p>
-          <p className="text-zinc-500 text-sm mb-6 text-center max-w-xs">
-            Create your first AI voice agent and deploy it on your website in minutes.
+        <motion.div 
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="flex flex-col items-center justify-center py-40 rounded-[4rem] bg-white/40 border border-dashed border-slate-200 backdrop-blur-md"
+        >
+          <div className="w-24 h-24 rounded-[2.5rem] bg-slate-50 flex items-center justify-center mb-8 shadow-inner">
+            <Bot size={48} className="text-slate-300" />
+          </div>
+          <p className="text-slate-900 text-2xl font-black tracking-tight mb-3">No Agents Deployed</p>
+          <p className="text-slate-400 font-bold text-center max-w-xs mb-10 leading-relaxed uppercase tracking-tight text-xs">
+            Create your first AI voice employee and start handling calls in minutes.
           </p>
-          <button
+          <Button
             onClick={() => setModalOpen(true)}
-            className="flex items-center gap-2 bg-white text-black font-semibold text-sm px-4 py-2 rounded-xl"
+            className="h-16 px-10 rounded-3xl text-sm font-black uppercase tracking-widest shadow-2xl shadow-black/10"
           >
-            <Plus size={14} /> Create Agent
-          </button>
-        </div>
+            <Plus size={18} className="mr-2" /> Create First Agent
+          </Button>
+        </motion.div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {agents.map((agent) => (
-            <div key={agent.id} className="p-5 rounded-2xl border border-white/[0.06] bg-white/[0.02] hover:border-white/[0.1] transition-all group">
-              <div className="flex items-start justify-between mb-4">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-xl bg-white/[0.08] flex items-center justify-center text-white font-bold text-base">
-                    {agent.name.charAt(0)}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+          {agents.map((agent, i) => (
+            <motion.div 
+              key={agent.id}
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: i * 0.1 }}
+              className="group"
+            >
+              <Card className="p-8 border-none bg-white/70 backdrop-blur-xl hover:shadow-[0_40px_80px_-20px_rgba(0,0,0,0.1)] transition-all duration-700 rounded-[3.5rem] relative overflow-hidden h-full flex flex-col">
+                <div className="absolute inset-0 bg-vocalink-gradient opacity-0 group-hover:opacity-10 transition-opacity" />
+                
+                <div className="flex items-start justify-between mb-8 relative z-10">
+                  <div className="flex items-center gap-5">
+                    <div className="w-16 h-16 rounded-[1.8rem] bg-slate-900 flex items-center justify-center text-white font-black text-2xl shadow-2xl shadow-black/20 group-hover:scale-110 transition-transform duration-500">
+                      {agent.name.charAt(0)}
+                    </div>
+                    <div>
+                      <h3 className="text-slate-900 font-black text-lg tracking-tight leading-none mb-2">{agent.name}</h3>
+                      <div className="flex items-center gap-2">
+                        <Badge variant="purple" className="px-3 py-1 rounded-full text-[8px] border-none bg-slate-100 text-slate-500">{agent.voice_name}</Badge>
+                        <Badge variant="info" className="px-3 py-1 rounded-full text-[8px] border-none bg-slate-100 text-slate-500">{agent.language}</Badge>
+                      </div>
+                    </div>
                   </div>
-                  <div>
-                    <p className="text-white font-semibold text-sm">{agent.name}</p>
-                    <p className="text-zinc-500 text-xs">{agent.voice_name} · {agent.language}</p>
+                  <button 
+                    onClick={() => toggleActive(agent)} 
+                    className="p-3 rounded-2xl bg-slate-50 hover:bg-slate-100 transition-colors"
+                  >
+                    {agent.is_active 
+                      ? <ToggleRight size={24} className="text-emerald-500" /> 
+                      : <ToggleLeft size={24} className="text-slate-300" />
+                    }
+                  </button>
+                </div>
+
+                <div className="space-y-6 flex-grow relative z-10">
+                  <p className="text-slate-400 text-xs font-bold leading-relaxed line-clamp-3 uppercase tracking-tight">
+                    {agent.system_prompt || "Defining the core personality and logic of your AI employee."}
+                  </p>
+
+                  <div className="flex items-center gap-6 pt-4 border-t border-slate-50">
+                    <div className="flex flex-col">
+                      <span className="text-[10px] font-black text-slate-300 uppercase tracking-widest">Total Calls</span>
+                      <span className="text-lg font-black text-slate-900 tracking-tighter">{agent.total_conversations}</span>
+                    </div>
+                    <div className="flex flex-col">
+                      <span className="text-[10px] font-black text-slate-300 uppercase tracking-widest">Status</span>
+                      <span className={`text-[10px] font-black uppercase tracking-widest mt-1 ${agent.is_active ? "text-emerald-500" : "text-slate-300"}`}>
+                        {agent.is_active ? "Live & Ready" : "Inactive"}
+                      </span>
+                    </div>
                   </div>
                 </div>
-                <button onClick={() => toggleActive(agent)} className="text-zinc-500 hover:text-white transition-colors">
-                  {agent.is_active ? <ToggleRight size={20} className="text-emerald-400" /> : <ToggleLeft size={20} />}
-                </button>
-              </div>
 
-              <p className="text-zinc-600 text-xs mb-4 line-clamp-2">
-                {agent.system_prompt || "No prompt configured yet."}
-              </p>
-
-              <div className="flex items-center gap-2 text-xs text-zinc-600 mb-4">
-                <span>{agent.total_conversations} calls</span>
-                <span>·</span>
-                <span className={agent.is_active ? "text-emerald-400" : "text-zinc-600"}>
-                  {agent.is_active ? "Active" : "Inactive"}
-                </span>
-              </div>
-
-              <div className="flex items-center gap-2">
-                <Link
-                  href={`/dashboard/agents/${agent.id}`}
-                  className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg border border-white/[0.08] text-white text-xs font-medium hover:bg-white/[0.04] transition-all"
-                >
-                  <Edit3 size={12} /> Configure
-                </Link>
-                <button
-                  onClick={() => setDeleteId(agent.id)}
-                  className="p-2 rounded-lg border border-white/[0.08] text-zinc-600 hover:text-red-400 hover:border-red-500/20 transition-all"
-                >
-                  <Trash2 size={13} />
-                </button>
-              </div>
-            </div>
+                <div className="flex items-center gap-4 mt-10 relative z-10">
+                  <Link
+                    href={`/dashboard/agents/${agent.id}`}
+                    className="flex-1"
+                  >
+                    <Button className="w-full h-14 rounded-2xl text-xs font-black uppercase tracking-widest shadow-xl shadow-black/5 hover:scale-[1.02] transition-all">
+                      <Edit3 size={14} className="mr-2" /> Configure
+                    </Button>
+                  </Link>
+                  <button
+                    onClick={() => setDeleteId(agent.id)}
+                    className="w-14 h-14 rounded-2xl bg-red-50 flex items-center justify-center text-red-500 hover:bg-red-500 hover:text-white transition-all duration-300"
+                  >
+                    <Trash2 size={18} />
+                  </button>
+                </div>
+              </Card>
+            </motion.div>
           ))}
         </div>
       )}
 
       {/* Create Modal */}
-      <Modal open={modalOpen} onClose={() => setModalOpen(false)} title="Create New Agent">
-        <div className="flex flex-col gap-4">
-          {[
-            { label: "Agent Name", key: "name", placeholder: "e.g. Sana", type: "text" },
-            { label: "Business Type", key: "business_type", placeholder: "e.g. Restaurant, Healthcare", type: "text" },
-          ].map((f) => (
-            <div key={f.key}>
-              <label className="text-xs text-zinc-500 uppercase tracking-wider block mb-2">{f.label}</label>
-              <input
-                type={f.type}
-                value={(form as any)[f.key]}
-                onChange={(e) => setForm({ ...form, [f.key]: e.target.value })}
-                placeholder={f.placeholder}
-                className="w-full bg-white/[0.04] border border-white/[0.08] rounded-xl px-4 py-3 text-white text-sm placeholder:text-zinc-600 outline-none focus:border-white/20 transition-all"
-              />
+      <Modal open={modalOpen} onClose={() => setModalOpen(false)} title="Deploy New AI Employee">
+        <div className="flex flex-col gap-6">
+          <div className="space-y-6">
+            {[
+              { label: "Agent Name", key: "name", placeholder: "e.g. Sana", type: "text" },
+              { label: "Business Sector", key: "business_type", placeholder: "e.g. Fine Dining, Logistics", type: "text" },
+            ].map((f) => (
+              <div key={f.key}>
+                <label className="text-[10px] font-black text-slate-300 uppercase tracking-widest block mb-2.5 ml-1">{f.label}</label>
+                <input
+                  type={f.type}
+                  value={(form as any)[f.key]}
+                  onChange={(e) => setForm({ ...form, [f.key]: e.target.value })}
+                  placeholder={f.placeholder}
+                  className="w-full bg-slate-50 border-none rounded-2xl px-5 py-4 text-slate-900 text-sm font-bold placeholder:text-slate-300 outline-none focus:ring-1 focus:ring-black/5 focus:bg-white transition-all shadow-sm"
+                />
+              </div>
+            ))}
+
+            <div>
+              <label className="text-[10px] font-black text-slate-300 uppercase tracking-widest block mb-2.5 ml-1">Voice Profile</label>
+              <select
+                value={form.voice_name}
+                onChange={(e) => setForm({ ...form, voice_name: e.target.value })}
+                className="w-full bg-slate-50 border-none rounded-2xl px-5 py-4 text-slate-900 text-sm font-bold outline-none focus:ring-1 focus:ring-black/5 focus:bg-white transition-all shadow-sm appearance-none"
+              >
+                {VOICES.map((v) => (
+                  <option key={v.id} value={v.id}>{v.label} ({v.gender})</option>
+                ))}
+              </select>
             </div>
-          ))}
 
-          <div>
-            <label className="text-xs text-zinc-500 uppercase tracking-wider block mb-2">Voice</label>
-            <select
-              value={form.voice_name}
-              onChange={(e) => setForm({ ...form, voice_name: e.target.value })}
-              className="w-full bg-white/[0.04] border border-white/[0.08] rounded-xl px-4 py-3 text-white text-sm outline-none focus:border-white/20 transition-all"
-            >
-              {VOICES.map((v) => (
-                <option key={v.id} value={v.id} className="bg-zinc-900">{v.label} ({v.gender}) — {v.description}</option>
-              ))}
-            </select>
-          </div>
-
-          <div>
-            <label className="text-xs text-zinc-500 uppercase tracking-wider block mb-2">Language</label>
-            <select
-              value={form.language}
-              onChange={(e) => setForm({ ...form, language: e.target.value })}
-              className="w-full bg-white/[0.04] border border-white/[0.08] rounded-xl px-4 py-3 text-white text-sm outline-none focus:border-white/20 transition-all"
-            >
-              {LANGUAGES.map((l) => (
-                <option key={l.id} value={l.id} className="bg-zinc-900">{l.label}</option>
-              ))}
-            </select>
-          </div>
-
-          <div>
-            <label className="text-xs text-zinc-500 uppercase tracking-wider block mb-2">Personality</label>
-            <div className="flex flex-wrap gap-2">
-              {PERSONALITY_PRESETS.map((p) => (
-                <button
-                  key={p}
-                  onClick={() => setForm({ ...form, personality: p })}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all capitalize ${
-                    form.personality === p
-                      ? "bg-white text-black"
-                      : "border border-white/[0.08] text-zinc-400 hover:border-white/[0.16]"
-                  }`}
-                >
-                  {p}
-                </button>
-              ))}
+            <div>
+              <label className="text-[10px] font-black text-slate-300 uppercase tracking-widest block mb-2.5 ml-1">Native Language</label>
+              <select
+                value={form.language}
+                onChange={(e) => setForm({ ...form, language: e.target.value })}
+                className="w-full bg-slate-50 border-none rounded-2xl px-5 py-4 text-slate-900 text-sm font-bold outline-none focus:ring-1 focus:ring-black/5 focus:bg-white transition-all shadow-sm appearance-none"
+              >
+                {LANGUAGES.map((l) => (
+                  <option key={l.id} value={l.id}>{l.label}</option>
+                ))}
+              </select>
             </div>
           </div>
 
-          <button
+          <Button
             onClick={createAgent}
             disabled={saving || !form.name.trim()}
-            className="w-full bg-white text-black font-semibold py-3 rounded-xl hover:bg-zinc-100 transition-all text-sm disabled:opacity-50 mt-2 flex items-center justify-center gap-2"
+            className="w-full h-16 rounded-2xl shadow-2xl shadow-black/10 mt-4 text-sm font-black uppercase tracking-widest"
           >
-            {saving ? "Creating..." : <><Check size={14} /> Create Agent</>}
-          </button>
+            {saving ? "Deploying..." : "Finalize Deployment"}
+          </Button>
         </div>
       </Modal>
 
