@@ -12,7 +12,7 @@ import { Button } from '../../components/ui/Button';
 import { Badge } from '../../components/ui/Badge';
 import { motion, AnimatePresence } from 'framer-motion';
 
-import { useVoiceChat } from '../../hooks/useVoiceChat';
+import { useVoiceChat } from '@/hooks/useVoiceChat';
 import { createClient } from "@/lib/supabase/client";
 import Ambience from '../../components/Ambience';
 
@@ -260,7 +260,7 @@ export default function Simulator() {
                 <Button 
                   size="sm" 
                   className="absolute right-2 top-1/2 -translate-y-1/2 h-10 w-10 rounded-xl p-0"
-                  disabled={!isCalling}
+                  disabled={!inCall}
                 >
                   <ChevronRight size={18} />
                 </Button>
